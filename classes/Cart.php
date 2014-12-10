@@ -1916,6 +1916,7 @@ class CartCore extends ObjectModel
 		$carriers_price = array();
 		$carrier_collection = array();
 		$package_list = $this->getPackageList();
+		$cart_total_with_tax = $cart_total = 0;
 
 		// Foreach addresses
 		foreach ($package_list as $id_address => $packages)
@@ -1959,6 +1960,12 @@ class CartCore extends ObjectModel
 				$best_price_carrier = null;
 				$best_grade = null;
 				$best_grade_carrier = null;
+				
+				// Get cart total to check later for cart rule minimal value
+				foreach ($package['product_list'] as $product){
+					$cart_total += $product['total'];
+					$cart_total_with_tax += $product['total_wt'];
+				}
 
 				// Foreach carriers of the package, calculate his price, check if it the best price, position and grade
 				foreach ($package['carrier_list'] as $id_carrier)
@@ -2095,14 +2102,16 @@ class CartCore extends ObjectModel
 		{
 			if ($cart_rule['free_shipping'] && $cart_rule['carrier_restriction'])
 			{
-				$cr = new CartRule((int)$cart_rule['id_cart_rule']);
-				if (Validate::isLoadedObject($cr))
-				{
-					$carriers = $cr->getAssociatedRestrictions('carrier', true, false);
-					if (is_array($carriers) && count($carriers) && isset($carriers['selected']))
-						foreach($carriers['selected'] as $carrier)
-							if (isset($carrier['id_carrier']) && $carrier['id_carrier'])
-								$free_carriers_rules[] = (int)$carrier['id_carrier'];
+				if(($cart_rule['minimal'] == 0 and  $cart_rule['minimal_tax'] == 0) or ($cart_rule['minimal'] > 0 and $cart_rule['minimal'] <= $cart_total) or ($cart_rule['minimal_tax'] > 0 and $cart_rule['minimal_tax'] <= $cart_total_wt)){
+					$cr = new CartRule((int)$cart_rule['id_cart_rule']);
+					if (Validate::isLoadedObject($cr))
+					{
+						$carriers = $cr->getAssociatedRestrictions('carrier', true, false);
+						if (is_array($carriers) && count($carriers) && isset($carriers['selected']))
+							foreach($carriers['selected'] as $carrier)
+								if (isset($carrier['id_carrier']) && $carrier['id_carrier'])
+									$free_carriers_rules[] = (int)$carrier['id_carrier'];
+					}
 				}
 			}
 		}
